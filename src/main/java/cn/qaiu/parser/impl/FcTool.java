@@ -10,7 +10,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClientSession;
 import io.vertx.uritemplate.UriTemplate;
-import org.apache.commons.lang3.StringUtils;
+import cn.qaiu.util.StringUtils;
 
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

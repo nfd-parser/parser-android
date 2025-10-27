@@ -12,7 +12,7 @@ import io.vertx.core.Promise;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.uritemplate.UriTemplate;
-import org.apache.commons.lang3.StringUtils;
+import cn.qaiu.util.StringUtils;
 
 import java.util.*;
 

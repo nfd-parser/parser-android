@@ -16,7 +16,7 @@ import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.ext.web.client.WebClientSession;
 import io.vertx.ext.web.multipart.MultipartForm;
-import org.apache.commons.lang3.StringUtils;
+import cn.qaiu.util.StringUtils;
 import org.mozilla.javascript.Callable;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.NativeJSON;

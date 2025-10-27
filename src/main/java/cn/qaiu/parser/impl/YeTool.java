@@ -14,7 +14,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.pointer.JsonPointer;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.uritemplate.UriTemplate;
-import org.apache.commons.lang3.StringUtils;
+import cn.qaiu.util.StringUtils;
 
 import java.net.MalformedURLException;
 import java.time.OffsetDateTime;

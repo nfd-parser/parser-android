@@ -4,7 +4,7 @@ import cn.qaiu.entity.ShareLinkInfo;
 import cn.qaiu.parser.PanBase;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
-import org.apache.commons.lang3.StringUtils;
+import cn.qaiu.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;

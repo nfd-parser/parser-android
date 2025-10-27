@@ -1,7 +1,5 @@
 package cn.qaiu.util;
 
-import org.apache.commons.lang3.StringUtils;
-
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;

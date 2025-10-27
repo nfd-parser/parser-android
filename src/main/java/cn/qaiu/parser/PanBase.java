@@ -14,7 +14,7 @@ import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.ext.web.client.WebClientSession;
-import org.apache.commons.lang3.StringUtils;
+import cn.qaiu.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

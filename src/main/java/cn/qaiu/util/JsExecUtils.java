@@ -1,6 +1,4 @@
 package cn.qaiu.util;
-
-import org.apache.commons.lang3.StringUtils;
 import org.mozilla.javascript.*;
 
 import java.net.URLEncoder;

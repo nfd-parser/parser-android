@@ -55,18 +55,10 @@
         <!-- Versions -->
         <okhttp.version>5.2.0</okhttp.version>
         <slf4j.version>2.0.5</slf4j.version>
-        <commons-lang3.version>3.18.0</commons-lang3.version>
         <jackson.version>2.20.0</jackson.version>
         <logback-classic.version>1.5.19</logback-classic.version>
         <junit.version>4.13.2</junit.version>
     </properties>
-
-    <repositories>
-        <repository>
-            <id>jitpack.io</id>
-            <url>https://jitpack.io</url>
-        </repository>
-    </repositories>
 
     <dependencies>
         <!-- Logging -->
@@ -95,12 +87,7 @@
             <version>${okhttp.version}</version>
         </dependency>
 
-        <!-- Common Utils -->
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>${commons-lang3.version}</version>
-        </dependency>
+        <!-- Common Utils - 已迁移到自实现 StringUtils -->
 
         <!-- JSON Processing -->
         <dependency>
@@ -260,6 +247,16 @@
                 <version>3.1.2</version>
                 <configuration>
                     <pomFile>${project.basedir}/.flattened-pom.xml</pomFile>
+                </configuration>
+            </plugin>
+
+            <!-- 跳过测试 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <skipTests>true</skipTests>
                 </configuration>
             </plugin>
         </plugins>

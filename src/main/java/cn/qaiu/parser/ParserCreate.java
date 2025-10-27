@@ -5,7 +5,7 @@ import cn.qaiu.parser.custom.CustomParserConfig;
 import cn.qaiu.parser.custom.CustomParserRegistry;
 import cn.qaiu.parser.customjs.JsParserExecutor;
 
-import org.apache.commons.lang3.StringUtils;
+import cn.qaiu.util.StringUtils;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;

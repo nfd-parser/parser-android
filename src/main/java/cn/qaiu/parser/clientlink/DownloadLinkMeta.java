@@ -2,7 +2,7 @@ package cn.qaiu.parser.clientlink;
 
 import cn.qaiu.entity.FileInfo;
 import cn.qaiu.entity.ShareLinkInfo;
-import org.apache.commons.lang3.StringUtils;
+import cn.qaiu.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
