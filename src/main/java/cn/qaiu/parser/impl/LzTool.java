@@ -12,6 +12,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientSession;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -70,10 +71,10 @@ public class LzTool extends PanBase {
                     if (!matcher.find()) {
                         try {
                             String jsText = getJsByPwd(pwd, html, "document.getElementById('rpt')");
-                            Map<String, Object> result = JsExecUtils.executeDynamicJs(jsText, "down_p");
+                            Map<String, Object> result = extractJsVariables(jsText, "down_p");
                             getDownURL(sUrl, client, result);
                         } catch (Exception e) {
-                            fail(e, "js引擎执行失败");
+                            fail(e, "js变量提取失败");
                         }
                     } else {
                         // 没有密码
@@ -89,10 +90,10 @@ public class LzTool extends PanBase {
                                 return;
                             }
                             try {
-                                Map<String, Object> result = JsExecUtils.executeDynamicJs(jsText, null);
+                                Map<String, Object> result = extractJsVariables(jsText, null);
                                 getDownURL(sUrl, client, result);
                             } catch (Exception e) {
-                                fail(e, "js引擎执行失败");
+                                fail(e, "js变量提取失败");
                             }
                         }).onFailure(handleFail(SHARE_URL_PREFIX));
                     }
@@ -126,12 +127,42 @@ public class LzTool extends PanBase {
         return html.substring(startPos, endPos).replaceAll("<!--.*-->", "");
     }
 
+    /**
+     * 从 JavaScript 代码中提取变量，构建 signObj 对象
+     * 替代原来的 JsExecUtils.executeDynamicJs 方法
+     * 
+     * @param jsText JavaScript 代码
+     * @param funName 函数名（如果为 null 则不调用函数）
+     * @return 包含 data 和 url 的 Map，格式与原来的 signObj 相同
+     */
+    private Map<String, Object> extractJsVariables(String jsText, String funName) {
+        // 提取所有全局变量
+        Map<String, Object> variables = JsVariableExtractor.extractVariables(jsText);
+        HashMap<String, Object> hashMap = new HashMap<>() {{
+            put("action", "downprocess");
+            put("websignkey", variables.get("ajaxdata"));
+            put("signs", variables.get("ajaxdata"));
+            put("sign", variables.get("wp_sign"));
+            put("websign", "");
+            put("kd", variables.get("kdns"));
+            put("ves", 1);
+        }};
+
+        Pattern pattern = Pattern.compile("'(?<URL>/ajaxm\\.php\\?file=\\d+)',//data");
+        Matcher matcher = pattern.matcher(jsText);
+        if (matcher.find()) {
+            String group = matcher.group("URL");
+            hashMap.put("url", group);
+        }
+        return hashMap;
+    }
+
     private void getDownURL(String key, WebClient client, Map<String, Object> objMap) {
         if (objMap == null || objMap.isEmpty()) {
             fail("需要访问密码");
             return;
         }
-        Map<?, ?> signMap = (Map<?, ?>)objMap.get("data");
+        Map<?, ?> signMap = (Map<?, ?>)objMap;
         String url0 = objMap.get("url").toString();
         MultiMap map = MultiMap.caseInsensitiveMultiMap();
         signMap.forEach((k, v) -> {
@@ -249,7 +280,7 @@ public class LzTool extends PanBase {
             String html = res.bodyAsString();
             try {
                 String jsText = getJsByPwd(pwd, html, "var urls =window.location.href");
-                Map<String, Object> result = JsExecUtils.executeDynamicJs(jsText, "file");
+                Map<String, Object> result = extractJsVariables(jsText, "file");
                 @SuppressWarnings("unchecked")
                 Map<String, Object> data = (Map<String, Object>) result.get("data");
                 MultiMap map = MultiMap.caseInsensitiveMultiMap();

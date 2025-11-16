@@ -4,6 +4,7 @@ import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
+import io.netty.handler.codec.http.HttpMethod;
 import okhttp3.*;
 
 import java.nio.charset.StandardCharsets;
@@ -76,56 +77,56 @@ public class WebClient {
 
     // 默认返回Buffer类型（底层数据）
     public RequestBuilder<Buffer> getAbs(String url) {
-        return new RequestBuilder<>(client, "GET", url);
+        return new RequestBuilder<>(client, HttpMethod.GET, url);
     }
 
     public RequestBuilder<Buffer> getAbs(io.vertx.uritemplate.UriTemplate template) {
-        return new RequestBuilder<>(client, "GET", template != null ? template.toString() : "");
+        return new RequestBuilder<>(client, HttpMethod.GET, template != null ? template.toString() : "");
     }
 
     public RequestBuilder<Buffer> postAbs(String url) {
-        return new RequestBuilder<>(client, "POST", url);
+        return new RequestBuilder<>(client, HttpMethod.POST, url);
     }
 
     public RequestBuilder<Buffer> postAbs(io.vertx.uritemplate.UriTemplate template) {
-        return new RequestBuilder<>(client, "POST", template != null ? template.toString() : "");
+        return new RequestBuilder<>(client, HttpMethod.POST, template != null ? template.toString() : "");
     }
 
     public RequestBuilder<Buffer> putAbs(String url) {
-        return new RequestBuilder<>(client, "PUT", url);
+        return new RequestBuilder<>(client, HttpMethod.PUT, url);
     }
 
     public RequestBuilder<Buffer> putAbs(io.vertx.uritemplate.UriTemplate template) {
-        return new RequestBuilder<>(client, "PUT", template != null ? template.toString() : "");
+        return new RequestBuilder<>(client, HttpMethod.PUT, template != null ? template.toString() : "");
     }
 
     public RequestBuilder<Buffer> deleteAbs(String url) {
-        return new RequestBuilder<>(client, "DELETE", url);
+        return new RequestBuilder<>(client, HttpMethod.DELETE, url);
     }
 
     public RequestBuilder<Buffer> deleteAbs(io.vertx.uritemplate.UriTemplate template) {
-        return new RequestBuilder<>(client, "DELETE", template != null ? template.toString() : "");
+        return new RequestBuilder<>(client, HttpMethod.DELETE, template != null ? template.toString() : "");
     }
 
     public RequestBuilder<Buffer> patchAbs(String url) {
-        return new RequestBuilder<>(client, "PATCH", url);
+        return new RequestBuilder<>(client, HttpMethod.PATCH, url);
     }
 
     public RequestBuilder<Buffer> patchAbs(io.vertx.uritemplate.UriTemplate template) {
-        return new RequestBuilder<>(client, "PATCH", template != null ? template.toString() : "");
+        return new RequestBuilder<>(client, HttpMethod.PATCH, template != null ? template.toString() : "");
     }
 
     public RequestBuilder<Buffer> headAbs(String url) {
-        return new RequestBuilder<>(client, "HEAD", url);
+        return new RequestBuilder<>(client, HttpMethod.HEAD, url);
     }
 
     public RequestBuilder<Buffer> headAbs(io.vertx.uritemplate.UriTemplate template) {
-        return new RequestBuilder<>(client, "HEAD", template != null ? template.toString() : "");
+        return new RequestBuilder<>(client, HttpMethod.HEAD, template != null ? template.toString() : "");
     }
 
     public static class RequestBuilder<T> implements HttpRequest<T> {
         private final OkHttpClient client;
-        private final String method;
+        private final HttpMethod method;
         private String url;
         private final MultiMap headers = MultiMap.caseInsensitiveMultiMap();
         private RequestBody body;
@@ -135,7 +136,7 @@ public class WebClient {
         @SuppressWarnings("rawtypes")
         private BodyCodec bodyCodec;
 
-        public RequestBuilder(OkHttpClient client, String method, String url) {
+        public RequestBuilder(OkHttpClient client, HttpMethod method, String url) {
             this.client = client;
             this.method = method;
             this.url = url;
@@ -300,7 +301,8 @@ public class WebClient {
             headers.forEach(rb::addHeader);
 
             // Set request method and body
-            switch (method.toUpperCase()) {
+            String methodName = method.name();
+            switch (methodName) {
                 case "POST":
                     rb.post(body != null ? body : RequestBody.create(new byte[0]));
                     break;
@@ -335,44 +337,68 @@ public class WebClient {
                     if (handler != null) {
                         handler.handle(new io.vertx.core.AsyncResultImpl<HttpResponse<T>>(e));
                     }
+                    // Guard: both null should never happen in normal usage
+                    if (future == null && handler == null) {
+                        System.err.println("WARNING: WebClient request failed but no future or handler: " + e.getMessage());
+                        e.printStackTrace();
+                    }
                 }
 
                 @Override
                 public void onResponse(Call call, Response res) throws IOException {
-                    MultiMap responseHeaders = MultiMap.caseInsensitiveMultiMap();
-                    res.headers().forEach(header -> 
-                        responseHeaders.set(header.getFirst(), header.getSecond()));
+                    try {
+                        MultiMap responseHeaders = MultiMap.caseInsensitiveMultiMap();
+                        res.headers().forEach(header -> 
+                            responseHeaders.set(header.getFirst(), header.getSecond()));
 
-                    // 获取响应体的字节数组
-                    byte[] bodyBytes = null;
-                    if (res.body() != null) {
-                        bodyBytes = res.body().bytes();
-                    }
-                    
-                    // OkHttp的行为：自动解压gzip，但可能对deflate和br的处理不一致
-                    // 由于实际使用中都是通过asText()和asJson()来处理响应，这些方法会处理解压
-                    // 所以我们不做任何特殊处理，统一让HttpResponseHelper来处理解压逻辑
-                    
-                    // 使用BodyCodec解码响应体
-                    @SuppressWarnings("unchecked")
-                    T decodedBody;
-                    if (bodyCodec.getTargetClass() == Buffer.class) {
-                        // Buffer类型：直接创建Buffer
-                        decodedBody = (T) Buffer.buffer(bodyBytes != null ? bodyBytes : new byte[0]);
-                    } else {
-                        // String或其他类型：先转为String再解码
-                        String bodyString = new String(bodyBytes != null ? bodyBytes : new byte[0], StandardCharsets.UTF_8);
-                        decodedBody = (T) bodyCodec.decode(bodyString, responseHeaders);
-                    }
-                    
-                    // 创建响应对象
-                    HttpResponse<T> response = createResponse(res.code(), decodedBody, responseHeaders);
-                    
-                    if (future != null) {
-                        future.complete(response);
-                    }
-                    if (handler != null) {
-                        handler.handle(new io.vertx.core.AsyncResultImpl<>(response));
+                        // 获取响应体的字节数组
+                        byte[] bodyBytes = null;
+                        if (res.body() != null) {
+                            bodyBytes = res.body().bytes();
+                        }
+                        
+                        // OkHttp的行为：自动解压gzip，但可能对deflate和br的处理不一致
+                        // 由于实际使用中都是通过asText()和asJson()来处理响应，这些方法会处理解压
+                        // 所以我们不做任何特殊处理，统一让HttpResponseHelper来处理解压逻辑
+                        
+                        // 使用BodyCodec解码响应体
+                        @SuppressWarnings("unchecked")
+                        T decodedBody;
+                        if (bodyCodec.getTargetClass() == Buffer.class) {
+                            // Buffer类型：直接创建Buffer
+                            decodedBody = (T) Buffer.buffer(bodyBytes != null ? bodyBytes : new byte[0]);
+                        } else {
+                            // String或其他类型：先转为String再解码
+                            String bodyString = new String(bodyBytes != null ? bodyBytes : new byte[0], StandardCharsets.UTF_8);
+                            decodedBody = (T) bodyCodec.decode(bodyString, responseHeaders);
+                        }
+                        
+                        // 创建响应对象
+                        HttpResponse<T> response = createResponse(res.code(), decodedBody, responseHeaders);
+                        
+                        if (future != null) {
+                            future.complete(response);
+                        }
+                        if (handler != null) {
+                            handler.handle(new io.vertx.core.AsyncResultImpl<>(response));
+                        }
+                        // Guard: both null should never happen in normal usage
+                        if (future == null && handler == null) {
+                            System.err.println("WARNING: WebClient callback completed but no future or handler to deliver result");
+                        }
+                    } catch (Exception e) {
+                        // Handle exceptions during response processing
+                        if (future != null) {
+                            future.fail(e);
+                        }
+                        if (handler != null) {
+                            handler.handle(new io.vertx.core.AsyncResultImpl<>(e));
+                        }
+                        // Guard: both null should never happen in normal usage
+                        if (future == null && handler == null) {
+                            System.err.println("WARNING: WebClient callback failed with exception but no future or handler: " + e.getMessage());
+                            e.printStackTrace();
+                        }
                     }
                 }
             });

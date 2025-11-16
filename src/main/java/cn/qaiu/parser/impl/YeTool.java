@@ -3,18 +3,17 @@ package cn.qaiu.parser.impl;
 import cn.qaiu.entity.FileInfo;
 import cn.qaiu.entity.ShareLinkInfo;
 import cn.qaiu.parser.PanBase;
-import cn.qaiu.util.CommonUtils;
-import cn.qaiu.util.FileSizeConverter;
-import cn.qaiu.util.JsExecUtils;
+import cn.qaiu.util.*;
 import io.vertx.core.Future;
 import io.vertx.core.MultiMap;
 import io.vertx.core.Promise;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.json.pointer.JsonPointer;
+import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.uritemplate.UriTemplate;
-import cn.qaiu.util.StringUtils;
 
 import java.net.MalformedURLException;
 import java.time.OffsetDateTime;
@@ -37,7 +36,7 @@ public class YeTool extends PanBase {
     private static final String GET_FILE_INFO_URL = "https://www.123pan.com/a/api/share/get?limit=100&next=1&orderBy" +
             "=file_name&orderDirection=asc" +
             "&shareKey={shareKey}&SharePwd={pwd}&ParentFileId={ParentFileId}&Page=1&event=homeListFile&operateType=1";
-    private static final String DOWNLOAD_API_URL = "https://www.123pan.com/a/api/share/download/info?{authK}={authV}";
+    private static final String DOWNLOAD_API_URL = "https://www.123pan.com/b/api/share/download/info?{authK}={authV}";
 
     private static final String BATCH_DOWNLOAD_API_URL = "https://www.123pan.com/b/api/file/batch_download_share_info?{authK}={authV}";
     private final MultiMap header = MultiMap.caseInsensitiveMultiMap();
@@ -48,8 +47,6 @@ public class YeTool extends PanBase {
         header.set("App-Version", "3");
         header.set("Cache-Control", "no-cache");
         header.set("Connection", "keep-alive");
-        //header.set("DNT", "1");
-        //header.set("Host", "www.123pan.com");
         header.set("LoginUuid", gen36String());
         header.set("Pragma", "no-cache");
         header.set("Referer", shareLinkInfo.getStandardUrl());
@@ -64,6 +61,10 @@ public class YeTool extends PanBase {
     }
 
     public Future<String> parse() {
+        MultiMap auths = (MultiMap) shareLinkInfo.getOtherParam().get("auths");
+        if (auths != null && !auths.isEmpty()) {
+            auths.forEach(header::set);
+        }
 
         final String shareKey = shareLinkInfo.getShareKey().replaceAll("(\\..*)|(#.*)", "");
         final String pwd = shareLinkInfo.getSharePassword();
@@ -131,23 +132,26 @@ public class YeTool extends PanBase {
     }
 
     private void down(WebClient client, JsonObject jsonObject, String api) {
-        Map<String, Object> getSign;
+        String[] getSign;
         try {
-            getSign = JsExecUtils.executeJs("getSign", "/a/api/share/download/info");
+            getSign = SignUtil.getSign("/a/api/share/download/info");
         } catch (Exception e) {
             fail(e, "JS函数执行异常");
             return;
         }
-        log.info("ye getSign: {}={}", getSign.get("0").toString(), getSign.get("1").toString());
+        log.info("ye getSign: {}={}", getSign[0], getSign[1]);
 
-        client.postAbs(UriTemplate.of(api))
-                .setTemplateParam("authK", getSign.get("0").toString())
-                .setTemplateParam("authV", getSign.get("1").toString())
-                .putHeader("Platform", "web")
-                .putHeader("App-Version", "3")
-                .sendJsonObject(jsonObject).onSuccess(res2 -> {
+
+        HttpRequest<Buffer> bufferHttpRequest = client.postAbs(UriTemplate.of(DOWNLOAD_API_URL));
+        bufferHttpRequest.putHeader("platform", "ios");
+        Integer size = jsonObject.getInteger("Size");
+        // 如果文件大于 100MB 需要认证
+        if (size != null && size > 1000 * 1000 * 100) {
+            bufferHttpRequest.putHeaders(header);
+        }
+
+        bufferHttpRequest.sendJsonObject(jsonObject).onSuccess(res2 -> {
                     JsonObject downURLJson = asJson(res2);
-
                     try {
                         if (downURLJson.getInteger("code") != 0) {
                             fail("Ye: downURLJson返回值异常->" + downURLJson);
@@ -157,16 +161,28 @@ public class YeTool extends PanBase {
                         fail("Ye: downURLJson格式异常->" + downURLJson);
                         return;
                     }
-                    String downURL = downURLJson.getJsonObject("data")
-                            .getString(api.contains("batch_download_share_info")? "DownloadUrl" : "DownloadURL");
+                    String downURL = downURLJson.getJsonObject("data").getString("DownloadURL");
                     try {
                         Map<String, String> urlParams = CommonUtils.getURLParams(downURL);
                         String params = urlParams.get("params");
+                        if (params.contains("\\u0026")) {
+                            params = params.replaceAll("\\\\u0026.*", "");
+                        }
+
                         byte[] decodeByte = Base64.getDecoder().decode(params);
                         String downUrl2 = new String(decodeByte);
 
-                        // 获取直链
-                        client.getAbs(downUrl2).send().onSuccess(res3 -> {
+                        // https://123-184-221-24.pd1.cjjd19.com:30443/download-cdn.123295.com/123-83/69c94adb/1811834632-0/69c94adbc0b9190cf23c4e958d8c7c53/c-m2?v=6&t=1754014126&s=1754014126b40eb782515b7d96708a857cae582b7e&r=X78GPG&bzc=2&bzs=313831353236383636353a33373639323731303a343230333131313a30&ref=upX4tKXHmZfUPHxfzTThJJp1YQ2dE-xU66zxawYHsuMEOnieKVqXzVDCOluHRgmp&bzp=0&bi=413140778&filename=%E8%93%9D%E4%BA%91_1.3.1.4.apk&x-mf-biz-cid=e3714c6c-2119-4b9c-9b11-80382489f92e-584000&auto_redirect=0&ndcp=1&cache_type=1&xmfcid=d1e0ba50-acc8-4829-bc8f-ad4bb547db0371c6cddcac6
+                        clientNoRedirects.getAbs(downUrl2).putHeaders(header).send().onSuccess(res3 -> {
+                            if (res3.statusCode() == 302 || res3.statusCode() == 301) {
+                                String redirectUrl = res3.getHeader("Location");
+                                if (StringUtils.isBlank(redirectUrl)) {
+                                    fail("重定向链接为空");
+                                    return;
+                                }
+                                complete(redirectUrl);
+                                return;
+                            }
                             JsonObject res3Json = asJson(res3);
                             try {
                                 if (res3Json.getInteger("code") != 0) {
@@ -177,15 +193,12 @@ public class YeTool extends PanBase {
                                 fail("Ye: downUrl2格式异常->" + downURLJson);
                                 return;
                             }
-
-                            promise.complete(res3Json.getJsonObject("data").getString("redirect_url"));
-
-                        }).onFailure(this.handleFail("获取直链失败"));
-
+                            complete(res3Json.getJsonObject("data").getString("redirect_url"));
+                        }).onFailure(err -> fail("获取直链失败"));
                     } catch (MalformedURLException e) {
                         fail("urlParams解析异常" + e.getMessage());
                     }
-                }).onFailure(this.handleFail(DOWNLOAD_API_URL));
+                }).onFailure(err -> fail("下载接口失败"));
     }
 
 

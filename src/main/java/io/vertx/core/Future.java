@@ -50,8 +50,17 @@ public class Future<T> {
 
     public Future<T> onSuccess(Handler<T> handler) {
         delegate.thenAccept(result -> {
-            // Type erasure compatibility: HttpResponse<String> and HttpResponse<Buffer> are the same at runtime
-            handler.handle(result);
+            try {
+                // Type erasure compatibility: HttpResponse<String> and HttpResponse<Buffer> are the same at runtime
+                handler.handle(result);
+            } catch (Throwable e) {
+                // If handler throws exception, CompletableFuture will automatically fail the future
+                // This catch ensures the exception is logged and doesn't propagate to the thread pool
+                System.err.println("WARNING: Success handler threw exception: " + e.getMessage());
+                e.printStackTrace();
+                // Re-throw to let CompletableFuture handle it
+                throw new RuntimeException(e);
+            }
         });
         return this;
     }
@@ -60,15 +69,30 @@ public class Future<T> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public Future<T> onSuccessUnchecked(Handler handler) {
         delegate.thenAccept(result -> {
-            // Due to type erasure, HttpResponse<Buffer> and HttpResponse<String> are identical at runtime
-            handler.handle(result);
+            try {
+                // Due to type erasure, HttpResponse<Buffer> and HttpResponse<String> are identical at runtime
+                handler.handle(result);
+            } catch (Throwable e) {
+                // If handler throws exception, CompletableFuture will automatically fail the future
+                // This catch ensures the exception is logged and doesn't propagate to the thread pool
+                System.err.println("WARNING: Success handler threw exception: " + e.getMessage());
+                e.printStackTrace();
+                // Re-throw to let CompletableFuture handle it
+                throw new RuntimeException(e);
+            }
         });
         return this;
     }
 
     public Future<T> onFailure(Handler<Throwable> handler) {
         delegate.exceptionally(e -> {
-            handler.handle(e);
+            try {
+                handler.handle(e);
+            } catch (Exception ex) {
+                // If failure handler also throws, log it but don't fail the future again
+                System.err.println("WARNING: Failure handler threw exception: " + ex.getMessage());
+                ex.printStackTrace();
+            }
             return null;
         });
         return this;
@@ -76,10 +100,17 @@ public class Future<T> {
 
     public void onComplete(Handler<AsyncResult<T>> handler) {
         delegate.whenComplete((result, error) -> {
-            if (error != null) {
-                handler.handle(AsyncResult.failure(error));
-            } else {
-                handler.handle(AsyncResult.success(result));
+            try {
+                if (error != null) {
+                    handler.handle(AsyncResult.failure(error));
+                } else {
+                    handler.handle(AsyncResult.success(result));
+                }
+            } catch (Throwable e) {
+                // If complete handler throws exception, log it
+                // The future is already completed, so we can't fail it again
+                System.err.println("WARNING: Complete handler threw exception: " + e.getMessage());
+                e.printStackTrace();
             }
         });
     }

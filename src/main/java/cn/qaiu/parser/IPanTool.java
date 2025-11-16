@@ -19,7 +19,15 @@ public interface IPanTool {
     Future<String> parse();
 
     default String parseSync() {
-        return parse().toCompletionStage().toCompletableFuture().join();
+        try {
+            return parse().toCompletionStage().toCompletableFuture().join();
+        } catch (Exception e) {
+            // Wrap any checked exceptions as RuntimeException
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw new RuntimeException("Parser execution failed", e);
+        }
     }
 
     /**
@@ -33,7 +41,15 @@ public interface IPanTool {
     }
 
     default List<FileInfo> parseFileListSync() {
-        return parseFileList().toCompletionStage().toCompletableFuture().join();
+        try {
+            return parseFileList().toCompletionStage().toCompletableFuture().join();
+        } catch (Exception e) {
+            // Wrap any checked exceptions as RuntimeException
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw new RuntimeException("Parser file list execution failed", e);
+        }
     }
 
     /**
@@ -47,7 +63,15 @@ public interface IPanTool {
     }
 
     default String parseByIdSync() {
-        return parseById().toCompletionStage().toCompletableFuture().join();
+        try {
+            return parseById().toCompletionStage().toCompletableFuture().join();
+        } catch (Exception e) {
+            // Wrap any checked exceptions as RuntimeException
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw new RuntimeException("Parser ID execution failed", e);
+        }
     }
 
     /**
@@ -126,7 +150,15 @@ public interface IPanTool {
      * @return Map<ClientLinkType, String> 客户端下载链接集合
      */
     default Map<ClientLinkType, String> parseWithClientLinksSync() {
-        return parseWithClientLinks().toCompletionStage().toCompletableFuture().join();
+        try {
+            return parseWithClientLinks().toCompletionStage().toCompletableFuture().join();
+        } catch (Exception e) {
+            // Wrap any checked exceptions as RuntimeException
+            if (e instanceof RuntimeException) {
+                throw (RuntimeException) e;
+            }
+            throw new RuntimeException("Parser client links execution failed", e);
+        }
     }
 
     /**

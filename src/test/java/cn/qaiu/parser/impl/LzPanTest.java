@@ -87,7 +87,7 @@ public class LzPanTest {
         // 创建Vertx实例（启动事件循环）
         vertx = Vertx.vertx();
         
-        String shareKey = "xxxxx";
+        String shareKey = "xxx";
         
         System.out.println("分享Key: " + shareKey);
         System.out.println();

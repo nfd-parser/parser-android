@@ -6,7 +6,7 @@
 
     <groupId>cn.qaiu</groupId>
     <artifactId>parser-android</artifactId>
-    <version>10.2.1</version>
+    <version>10.2.4</version>
     <packaging>jar</packaging>
 
     <name>cn.qaiu:parser-android</name>
@@ -55,7 +55,6 @@
         <!-- Versions -->
         <okhttp.version>5.2.0</okhttp.version>
         <slf4j.version>2.0.5</slf4j.version>
-        <jackson.version>2.20.0</jackson.version>
         <logback-classic.version>1.5.19</logback-classic.version>
         <junit.version>4.13.2</junit.version>
     </properties>
@@ -89,17 +88,7 @@
 
         <!-- Common Utils - 已迁移到自实现 StringUtils -->
 
-        <!-- JSON Processing -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-core</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
-        </dependency>
+        <!-- JSON Processing - using built-in zero-dependency implementation -->
 
         <!-- Script Engine -->
         <dependency>
@@ -250,7 +239,7 @@
                 </configuration>
             </plugin>
 
-            <!-- 跳过测试 -->
+            <!-- 测试配置 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
