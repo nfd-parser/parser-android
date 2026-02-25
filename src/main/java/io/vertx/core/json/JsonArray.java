@@ -22,11 +22,29 @@ public class JsonArray {
         }
     }
 
-    public JsonArray(List<Object> list) {
+    public JsonArray(List<?> list) {
         this.list = new ArrayList<>();
         if (list != null) {
             this.list.addAll(list);
         }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public JsonArray(List<? extends Object> list, boolean dummy) {
+        this.list = new ArrayList<>();
+        if (list != null) {
+            this.list.addAll((List) list);
+        }
+    }
+
+    public static JsonArray of(List<? extends Object> list) {
+        JsonArray arr = new JsonArray();
+        if (list != null) {
+            for (Object item : list) {
+                arr.add(item);
+            }
+        }
+        return arr;
     }
 
     public JsonArray add(Object value) {

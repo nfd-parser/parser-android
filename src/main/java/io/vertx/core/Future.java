@@ -32,10 +32,43 @@ public class Future<T> {
         return f;
     }
 
+    public static Future<Void> succeededFuture() {
+        Future<Void> f = new Future<>();
+        f.complete(null);
+        return f;
+    }
+
     public static <T> Future<T> failedFuture(Throwable e) {
         Future<T> f = new Future<>();
         f.fail(e);
         return f;
+    }
+
+    public static <T> Future<T> failedFuture(String message) {
+        Future<T> f = new Future<>();
+        f.fail(new RuntimeException(message));
+        return f;
+    }
+
+    @SuppressWarnings("rawtypes")
+    public static Future<Void> all(java.util.List<? extends Future<?>> futures) {
+        Future<Void> combined = new Future<>();
+        if (futures == null || futures.isEmpty()) {
+            combined.complete(null);
+            return combined;
+        }
+        java.util.concurrent.atomic.AtomicInteger remaining = new java.util.concurrent.atomic.AtomicInteger(futures.size());
+        java.util.concurrent.atomic.AtomicBoolean failed = new java.util.concurrent.atomic.AtomicBoolean(false);
+        for (Future<?> f : futures) {
+            f.onComplete(result -> {
+                if (result.failed() && failed.compareAndSet(false, true)) {
+                    combined.fail(result.cause());
+                } else if (!failed.get() && remaining.decrementAndGet() == 0) {
+                    combined.complete(null);
+                }
+            });
+        }
+        return combined;
     }
 
     public void complete(T value) {
@@ -113,6 +146,14 @@ public class Future<T> {
                 e.printStackTrace();
             }
         });
+    }
+
+    /**
+     * 将Future的完成结果传递给Promise
+     * @param promise 要完成的Promise
+     */
+    public void onComplete(Promise<T> promise) {
+        onComplete(promise::handle);
     }
 
     public <U> Future<U> map(Function<T, U> mapper) {

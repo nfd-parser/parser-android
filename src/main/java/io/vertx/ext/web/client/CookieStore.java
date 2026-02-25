@@ -1,14 +1,12 @@
 package io.vertx.ext.web.client;
 
 import io.netty.handler.codec.http.cookie.DefaultCookie;
-import okhttp3.Cookie;
 
 import java.util.List;
 import java.util.Map;
 
 public interface CookieStore {
-    void put(DefaultCookie cookie);
-    List<Cookie> get(String domain);
-    Map<String, List<Cookie>> getAll();
+    void put(io.netty.handler.codec.http.cookie.Cookie cookie);
+    List<okhttp3.Cookie> get(String domain);
+    Map<String, List<okhttp3.Cookie>> getAll();
 }
-

@@ -6,7 +6,7 @@ public class StringUtils {
      * 判断字符串是否为空或null
      */
     public static boolean isEmpty(String str) {
-        return str == null || str.length() == 0;
+        return str == null || str.isEmpty();
     }
 
     /**

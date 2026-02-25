@@ -1,7 +1,7 @@
 package io.vertx.ext.web.client;
 
-import io.netty.handler.codec.http.cookie.DefaultCookie;
-import okhttp3.Cookie;
+import io.netty.handler.codec.http.cookie.Cookie;
+import okhttp3.Cookie.Builder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,20 +9,20 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class CookieStoreImpl implements CookieStore {
-    private final Map<String, List<Cookie>> store = new ConcurrentHashMap<>();
+    private final Map<String, List<okhttp3.Cookie>> store = new ConcurrentHashMap<>();
 
     @Override
-    public void put(DefaultCookie cookie) {
+    public void put(Cookie cookie) {
         String domain = cookie.domain();
         if (domain == null || domain.isEmpty()) {
-            domain = "/";
+            domain = "localhost";
         }
         
-        // Convert DefaultCookie to OkHttp Cookie
-        Cookie.Builder builder = new Cookie.Builder()
+        // Convert io.netty.handler.codec.http.cookie.Cookie to OkHttp Cookie
+        Builder builder = new Builder()
                 .name(cookie.name())
                 .value(cookie.value())
-                .domain(cookie.domain() != null && !cookie.domain().isEmpty() ? cookie.domain() : "localhost")
+                .domain(domain)
                 .path(cookie.path() != null && !cookie.path().isEmpty() ? cookie.path() : "/");
         
         if (cookie.isSecure()) {
@@ -32,18 +32,17 @@ public class CookieStoreImpl implements CookieStore {
             builder.httpOnly();
         }
         
-        Cookie okHttpCookie = builder.build();
+        okhttp3.Cookie okHttpCookie = builder.build();
         store.computeIfAbsent(domain, k -> new ArrayList<>()).add(okHttpCookie);
     }
 
     @Override
-    public List<Cookie> get(String domain) {
+    public List<okhttp3.Cookie> get(String domain) {
         return store.getOrDefault(domain, new ArrayList<>());
     }
 
     @Override
-    public Map<String, List<Cookie>> getAll() {
+    public Map<String, List<okhttp3.Cookie>> getAll() {
         return new ConcurrentHashMap<>(store);
     }
 }
-

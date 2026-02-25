@@ -1,59 +1,32 @@
 package io.netty.handler.codec.http.cookie;
 
-public class DefaultCookie {
-    private final String name;
-    private final String value;
-    private String domain;
-    private String path;
-    private boolean secure;
-    private boolean httpOnly;
+public class DefaultCookie extends Cookie {
 
     public DefaultCookie(String name, String value) {
-        this.name = name;
-        this.value = value;
+        super(name, value);
     }
 
-    public String name() {
-        return name;
-    }
-
-    public String value() {
-        return value;
-    }
-
-    public String domain() {
-        return domain;
-    }
-
+    @Override
     public DefaultCookie setDomain(String domain) {
-        this.domain = domain;
+        super.setDomain(domain);
         return this;
     }
 
-    public String path() {
-        return path;
-    }
-
+    @Override
     public DefaultCookie setPath(String path) {
-        this.path = path;
+        super.setPath(path);
         return this;
     }
 
-    public boolean isSecure() {
-        return secure;
-    }
-
+    @Override
     public DefaultCookie setSecure(boolean secure) {
-        this.secure = secure;
+        super.setSecure(secure);
         return this;
     }
 
-    public boolean isHttpOnly() {
-        return httpOnly;
-    }
-
+    @Override
     public DefaultCookie setHttpOnly(boolean httpOnly) {
-        this.httpOnly = httpOnly;
+        super.setHttpOnly(httpOnly);
         return this;
     }
 }

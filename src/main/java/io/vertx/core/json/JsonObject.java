@@ -35,6 +35,11 @@ public class JsonObject {
         return this;
     }
 
+    public JsonObject putNull(String key) {
+        map.put(key, null);
+        return this;
+    }
+
     public String getString(String key) {
         Object value = map.get(key);
         if (value == null) {
@@ -69,6 +74,14 @@ public class JsonObject {
         }
     }
 
+    public Integer getInteger(String key, int def) {
+        Integer val = getInteger(key);
+        if (val == null) {
+            return def;
+        }
+        return val;
+    }
+
     public Long getLong(String key) {
         Object value = map.get(key);
         if (value == null) {
@@ -85,6 +98,11 @@ public class JsonObject {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    public Long getLong(String key, long def) {
+        Long val = getLong(key);
+        return val != null ? val : def;
     }
 
     public Double getDouble(String key) {
@@ -105,6 +123,11 @@ public class JsonObject {
         }
     }
 
+    public Double getDouble(String key, double def) {
+        Double val = getDouble(key);
+        return val != null ? val : def;
+    }
+
     public Boolean getBoolean(String key) {
         Object value = map.get(key);
         if (value == null) {
@@ -114,6 +137,11 @@ public class JsonObject {
             return (Boolean) value;
         }
         return Boolean.parseBoolean(value.toString());
+    }
+
+    public boolean getBoolean(String key, boolean def) {
+        Boolean val = getBoolean(key);
+        return val != null ? val : def;
     }
 
     public JsonObject getJsonObject(String key) {
@@ -132,6 +160,11 @@ public class JsonObject {
             return result;
         }
         return null;
+    }
+
+    public JsonObject getJsonObject(String key, JsonObject def) {
+        JsonObject val = getJsonObject(key);
+        return val != null ? val : def;
     }
 
     public JsonArray getJsonArray(String key) {
@@ -154,6 +187,14 @@ public class JsonObject {
 
     public boolean containsKey(String key) {
         return map.containsKey(key);
+    }
+
+    public java.util.Set<String> fieldNames() {
+        return map.keySet();
+    }
+
+    public JsonObject copy() {
+        return new JsonObject(new LinkedHashMap<>(this.map));
     }
 
     public String encode() {

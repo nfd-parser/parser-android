@@ -11,8 +11,8 @@ import io.vertx.core.Promise;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.client.WebClientSession;
+
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -25,13 +25,14 @@ import java.util.regex.Pattern;
  */
 public class LzTool extends PanBase {
 
-    public static final String SHARE_URL_PREFIX = "https://www.lanzoup.com";
+    WebClientSession webClientSession = WebClientSession.create(clientNoRedirects);
+
+    public static final String SHARE_URL_PREFIX = "https://w1.lanzn.com/";
     MultiMap headers0 = HeaderUtils.parseHeaders("""
         Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
         Accept-Encoding: gzip, deflate
         Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
         Cache-Control: max-age=0
-        Cookie: codelen=1; pc_ad1=1
         DNT: 1
         Priority: u=0, i
         Sec-CH-UA: "Chromium";v="140", "Not=A?Brand";v="24", "Microsoft Edge";v="140"
@@ -59,53 +60,100 @@ public class LzTool extends PanBase {
                 .putHeaders(headers0)
                 .send().onSuccess(res -> {
                     String html = asText(res);
-                    try {
-                        setFileInfo(html, shareLinkInfo);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                    // 匹配iframe
-                    Pattern compile = Pattern.compile("src=\"(/fn\\?[a-zA-Z\\d_+/=]{16,})\"");
-                    Matcher matcher = compile.matcher(html);
-                    // 没有Iframe说明是加密分享, 匹配sign通过密码请求下载页面
-                    if (!matcher.find()) {
-                        try {
-                            String jsText = getJsByPwd(pwd, html, "document.getElementById('rpt')");
-                            Map<String, Object> result = extractJsVariables(jsText, "down_p");
-                            getDownURL(sUrl, client, result);
-                        } catch (Exception e) {
-                            fail(e, "js变量提取失败");
-                        }
-                    } else {
-                        // 没有密码
-                        String iframePath = matcher.group(1);
-                        client.getAbs(SHARE_URL_PREFIX + iframePath).send().onSuccess(res2 -> {
-                            String html2 = res2.bodyAsString();
+                    if (html.contains("var arg1='")) {
+                        webClientSession = WebClientSession.create(clientNoRedirects);
+                        setCookie(html);
+                        webClientSession.getAbs(sUrl)
+                                .putHeaders(headers0)
+                                .send().onSuccess(res2 -> {
+                                    String html2 = asText(res2);
+                                    doParser(html2, pwd, sUrl);
+                                });
 
-                            // 去TMD正则
-                            // Matcher matcher2 = Pattern.compile("'sign'\s*:\s*'(\\w+)'").matcher(html2);
-                            String jsText = getJsText(html2);
-                            if (jsText == null) {
-                                fail(SHARE_URL_PREFIX + iframePath + " -> " + sUrl + ": js脚本匹配失败, 可能分享已失效");
-                                return;
-                            }
-                            try {
-                                Map<String, Object> result = extractJsVariables(jsText, null);
-                                getDownURL(sUrl, client, result);
-                            } catch (Exception e) {
-                                fail(e, "js变量提取失败");
-                            }
-                        }).onFailure(handleFail(SHARE_URL_PREFIX));
+                    } else {
+                        doParser(html, pwd, sUrl);
                     }
+
                 }).onFailure(handleFail(sUrl));
         return promise.future();
+    }
+
+    private void doParser(String html, String pwd, String sUrl) {
+        try {
+            setFileInfo(html, shareLinkInfo);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        // 匹配iframe
+        Pattern compile = Pattern.compile("src=\"(/fn\\?[a-zA-Z\\d_+/=]{16,})\"");
+        Matcher matcher = compile.matcher(html);
+        // 没有Iframe说明是加密分享, 匹配sign通过密码请求下载页面
+        if (!matcher.find()) {
+            try {
+                String jsText = getJsByPwd(pwd, html, "document.getElementById('rpt')");
+                Map<String, Object> signObj = JsExecUtils.executeDynamicJs(jsText, "down_p");
+                getDownURL(sUrl, signObj);
+            } catch (Exception e) {
+                fail(e, "js引擎执行失败");
+            }
+        }
+        else {
+            // 没有密码
+            String iframePath = matcher.group(1);
+            String absoluteURI = SHARE_URL_PREFIX + iframePath;
+            webClientSession.getAbs(absoluteURI).putHeaders(headers0).send().onSuccess(res2 -> {
+                String html2= asText(res2);
+                // Matcher matcher2 = Pattern.compile("'sign'\s*:\s*'(\\w+)'").matcher(html2);
+                String jsText = getJsText(html2);
+                if (jsText == null) {
+                    headers0.add("Referer", absoluteURI);
+                    setCookie(html2);
+                    webClientSession.getAbs(absoluteURI).send().onSuccess(res3 -> {
+                        String html3= asText(res3);
+                        String jsText3 = getJsText(html3);
+                        if (jsText3 != null) {
+                            try {
+                                Map<String, Object> signObj = JsExecUtils.executeDynamicJs(jsText3, null);
+                                getDownURL(sUrl, signObj);
+                            } catch (Exception e) {
+                                fail(e, "引擎执行失败");
+                            }
+                        } else  {
+
+                            fail(SHARE_URL_PREFIX + iframePath + " -> " + sUrl + ": 获取失败0, 可能分享已失效");
+                            return;
+                        }
+                    });
+                } else {
+                    try {
+                        Map<String, Object> signObj = JsExecUtils.executeDynamicJs(jsText, null);
+                        getDownURL(sUrl, signObj);
+                    } catch (Exception e) {
+                        fail(e, "js引擎执行失败");
+                    }
+                }
+            }).onFailure(handleFail(SHARE_URL_PREFIX));
+        }
+    }
+
+    private void setCookie(String html2) {
+        int beginIndex = html2.indexOf("arg1='") + 6;
+        String arg1 = html2.substring(beginIndex, html2.indexOf("';", beginIndex));
+        String acw_sc__v2 = AcwScV2Generator.acwScV2Simple(arg1);
+        // 创建一个 Cookie 并放入 CookieStore
+        DefaultCookie nettyCookie = new DefaultCookie("acw_sc__v2", acw_sc__v2);
+        nettyCookie.setDomain(".lanzn.com"); // 设置域名
+        nettyCookie.setPath("/");             // 设置路径
+        nettyCookie.setSecure(false);
+        nettyCookie.setHttpOnly(false);
+        webClientSession.cookieStore().put(nettyCookie);
     }
 
     private String getJsByPwd(String pwd, String html, String subText) {
         String jsText = getJsText(html);
 
         if (jsText == null) {
-            throw new RuntimeException("js脚本匹配失败, 可能分享已失效");
+            throw new RuntimeException("获取失败1, 可能分享已失效");
         }
         jsText = jsText.replace("document.getElementById('pwd').value", "\"" + pwd + "\"");
         int i = jsText.indexOf(subText);
@@ -127,50 +175,20 @@ public class LzTool extends PanBase {
         return html.substring(startPos, endPos).replaceAll("<!--.*-->", "");
     }
 
-    /**
-     * 从 JavaScript 代码中提取变量，构建 signObj 对象
-     * 替代原来的 JsExecUtils.executeDynamicJs 方法
-     * 
-     * @param jsText JavaScript 代码
-     * @param funName 函数名（如果为 null 则不调用函数）
-     * @return 包含 data 和 url 的 Map，格式与原来的 signObj 相同
-     */
-    private Map<String, Object> extractJsVariables(String jsText, String funName) {
-        // 提取所有全局变量
-        Map<String, Object> variables = JsVariableExtractor.extractVariables(jsText);
-        HashMap<String, Object> hashMap = new HashMap<>() {{
-            put("action", "downprocess");
-            put("websignkey", variables.get("ajaxdata"));
-            put("signs", variables.get("ajaxdata"));
-            put("sign", variables.get("wp_sign"));
-            put("websign", "");
-            put("kd", variables.get("kdns"));
-            put("ves", 1);
-        }};
-
-        Pattern pattern = Pattern.compile("'(?<URL>/ajaxm\\.php\\?file=\\d+)',//data");
-        Matcher matcher = pattern.matcher(jsText);
-        if (matcher.find()) {
-            String group = matcher.group("URL");
-            hashMap.put("url", group);
-        }
-        return hashMap;
-    }
-
-    private void getDownURL(String key, WebClient client, Map<String, Object> objMap) {
-        if (objMap == null || objMap.isEmpty()) {
+    private void getDownURL(String key, Map<String, ?> obj) {
+        if (obj == null) {
             fail("需要访问密码");
             return;
         }
-        Map<?, ?> signMap = (Map<?, ?>)objMap;
-        String url0 = objMap.get("url").toString();
+        Map<?, ?> signMap = (Map<?, ?>)obj.get("data");
+        String url0 = obj.get("url").toString();
         MultiMap map = MultiMap.caseInsensitiveMultiMap();
         signMap.forEach((k, v) -> {
             map.add((String) k, v.toString());
         });
-
         MultiMap headers = HeaderUtils.parseHeaders("""
                 Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7
+                Accept-Encoding: gzip, deflate, br, zstd
                 Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6
                 Cache-Control: no-cache
                 Connection: keep-alive
@@ -189,8 +207,7 @@ public class LzTool extends PanBase {
         headers.set("referer", key);
         // action=downprocess&signs=%3Fctdf&websignkey=I5gl&sign=BWMGOF1sBTRWXwI9BjZdYVA7BDhfNAIyUG9UawJtUGMIPlAhACkCa1UyUTAAYFxvUj5XY1E7UGFXaFVq&websign=&kd=1&ves=1
         String url = SHARE_URL_PREFIX + url0;
-
-        client.postAbs(url).putHeaders(headers).sendForm(map).onSuccess(res2 -> {
+        webClientSession.postAbs(url).putHeaders(headers).sendForm(map).onSuccess(res2 -> {
             try {
                 JsonObject urlJson = asJson(res2);
                 String name = urlJson.getString("inf");
@@ -205,7 +222,6 @@ public class LzTool extends PanBase {
 
                 String downUrl = urlJson.getString("dom") + "/file/" + urlJson.getString("url");
                 headers.remove("Referer");
-                WebClientSession webClientSession = WebClientSession.create(client);
                 webClientSession.getAbs(downUrl).putHeaders(headers).send()
                         .onSuccess(res3 -> {
                             String location = res3.headers().get("Location");
@@ -222,12 +238,13 @@ public class LzTool extends PanBase {
                                 nettyCookie.setPath("/");             // 设置路径
                                 nettyCookie.setSecure(false);
                                 nettyCookie.setHttpOnly(false);
-                                webClientSession.cookieStore().put(nettyCookie);
-                                webClientSession.getAbs(downUrl).putHeaders(headers).send()
+                                WebClientSession webClientSession2 = WebClientSession.create(clientNoRedirects);
+                                webClientSession2.cookieStore().put(nettyCookie);
+                                webClientSession2.getAbs(downUrl).putHeaders(headers).send()
                                         .onSuccess(res4 -> {
                                             String location0 = res4.headers().get("Location");
                                             if (location0 == null) {
-                                                fail(downUrl + " -> 直链获取失败, 可能分享已失效");
+                                                fail(downUrl + " -> 直链获取失败2, 可能分享已失效");
                                             } else {
                                                 setDateAndComplate(location0);
                                             }
@@ -275,66 +292,97 @@ public class LzTool extends PanBase {
         String sUrl = shareLinkInfo.getShareUrl();
         String pwd = shareLinkInfo.getSharePassword();
 
-        WebClient client = clientNoRedirects;
-        client.getAbs(sUrl).send().onSuccess(res -> {
+        webClientSession.getAbs(sUrl).send().onSuccess(res -> {
             String html = res.bodyAsString();
-            try {
-                String jsText = getJsByPwd(pwd, html, "var urls =window.location.href");
-                Map<String, Object> result = extractJsVariables(jsText, "file");
-                @SuppressWarnings("unchecked")
-                Map<String, Object> data = (Map<String, Object>) result.get("data");
-                MultiMap map = MultiMap.caseInsensitiveMultiMap();
-                data.forEach((k, v) -> map.set(k, v.toString()));
-                log.debug("解析参数: {}", map);
-                MultiMap headers = getHeaders(sUrl);
-
-                String url = SHARE_URL_PREFIX + "/filemoreajax.php?file=" + data.get("fid");
-                client.postAbs(url).putHeaders(headers).sendForm(map).onSuccess(res2 -> {
-                    JsonObject fileListJson = asJson(res2);
-                    if (fileListJson.getInteger("zt") != 1) {
-                        promise.fail(baseMsg() + fileListJson.getString("info"));
-                        return;
-                    }
-                    List<FileInfo> list = new ArrayList<>();
-                    fileListJson.getJsonArray("text").forEach(item -> {
-                        /*
-                        {
-                          "icon": "apk",
-                          "t": 0,
-                          "id": "iULV2n4361c",
-                          "name_all": "xx.apk",
-                          "size": "49.8 M",
-                          "time": "2021-03-19",
-                          "duan": "in4361",
-                          "p_ico": 0
-                        }
-                         */
-                        JsonObject fileJson = (JsonObject) item;
-                        FileInfo fileInfo = new FileInfo();
-                        String size = fileJson.getString("size");
-                        Long sizeNum = FileSizeConverter.convertToBytes(size);
-                        String panType = shareLinkInfo.getType();
-                        String id = fileJson.getString("id");
-                        fileInfo.setFileName(fileJson.getString("name_all"))
-                                .setFileId(id)
-                                .setCreateTime(fileJson.getString("time"))
-                                .setFileType(fileJson.getString("icon"))
-                                .setSizeStr(fileJson.getString("size"))
-                                .setSize(sizeNum)
-                                .setPanType(panType)
-                                .setParserUrl(getDomainName() + "/d/" + panType + "/" + id)
-                                .setPreviewUrl(String.format("%s/v2/view/%s/%s", getDomainName(),
-                                        shareLinkInfo.getType(), id));
-                        log.debug("文件信息: {}", fileInfo);
-                        list.add(fileInfo);
-                    });
-                    promise.complete(list);
-                });
-            } catch (Exception e) {
-                promise.fail(e);
+            // 检查是否需要 cookie 验证
+            if (html.contains("var arg1='")) {
+                webClientSession = WebClientSession.create(clientNoRedirects);
+                setCookie(html);
+                // 重新请求
+                webClientSession.getAbs(sUrl).send().onSuccess(res2 -> {
+                    handleFileListParse(res2.bodyAsString(), pwd, sUrl, promise);
+                }).onFailure(err -> promise.fail(err));
+                return;
             }
-        });
+            handleFileListParse(html, pwd, sUrl, promise);
+        }).onFailure(err -> promise.fail(err));
         return promise.future();
+    }
+
+    private void handleFileListParse(String html, String pwd, String sUrl, Promise<List<FileInfo>> promise) {
+        try {
+            String jsText = getJsByPwd(pwd, html, "var urls =window.location.href");
+            Map<String, Object> signObj = JsExecUtils.executeDynamicJs(jsText, "file");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = (Map<String, Object>) signObj.get("data");
+            MultiMap map = MultiMap.caseInsensitiveMultiMap();
+            data.forEach((k, v) -> map.set(k, v.toString()));
+            log.debug("解析参数: {}", map);
+            MultiMap headers = getHeaders(sUrl);
+
+            String url = SHARE_URL_PREFIX + "/filemoreajax.php?file=" + data.get("fid");
+            webClientSession.postAbs(url).putHeaders(headers).sendForm(map).onSuccess(res2 -> {
+                String resBody = asText(res2);
+                // 再次检查是否需要 cookie 验证
+                if (resBody.contains("var arg1='")) {
+                    setCookie(resBody);
+                    // 重新请求
+                    webClientSession.postAbs(url).putHeaders(headers).sendForm(map).onSuccess(res3 -> {
+                        handleFileListResponse(asText(res3), promise);
+                    }).onFailure(err -> promise.fail(err));
+                    return;
+                }
+                handleFileListResponse(resBody, promise);
+            }).onFailure(err -> promise.fail(err));
+        } catch (Exception e) {
+            promise.fail(e);
+        }
+    }
+
+    private void handleFileListResponse(String responseBody, Promise<List<FileInfo>> promise) {
+        try {
+            JsonObject fileListJson = new JsonObject(responseBody);
+            if (fileListJson.getInteger("zt") != 1) {
+                promise.fail(baseMsg() + fileListJson.getString("info"));
+                return;
+            }
+            List<FileInfo> list = new ArrayList<>();
+            fileListJson.getJsonArray("text").forEach(item -> {
+                /*
+                {
+                  "icon": "apk",
+                  "t": 0,
+                  "id": "iULV2n4361c",
+                  "name_all": "xx.apk",
+                  "size": "49.8 M",
+                  "time": "2021-03-19",
+                  "duan": "in4361",
+                  "p_ico": 0
+                }
+                 */
+                JsonObject fileJson = (JsonObject) item;
+                FileInfo fileInfo = new FileInfo();
+                String size = fileJson.getString("size");
+                Long sizeNum = FileSizeConverter.convertToBytes(size);
+                String panType = shareLinkInfo.getType();
+                String id = fileJson.getString("id");
+                fileInfo.setFileName(fileJson.getString("name_all"))
+                        .setFileId(id)
+                        .setCreateTime(fileJson.getString("time"))
+                        .setFileType(fileJson.getString("icon"))
+                        .setSizeStr(fileJson.getString("size"))
+                        .setSize(sizeNum)
+                        .setPanType(panType)
+                        .setParserUrl(getDomainName() + "/d/" + panType + "/" + id)
+                        .setPreviewUrl(String.format("%s/v2/view/%s/%s", getDomainName(),
+                                shareLinkInfo.getType(), id));
+                log.debug("文件信息: {}", fileInfo);
+                list.add(fileInfo);
+            });
+            promise.complete(list);
+        } catch (Exception e) {
+            promise.fail(e);
+        }
     }
 
     void setFileInfo(String html, ShareLinkInfo shareLinkInfo) {

@@ -6,7 +6,7 @@
 
     <groupId>cn.qaiu</groupId>
     <artifactId>parser-android</artifactId>
-    <version>10.2.4</version>
+    <version>10.2.5</version>
     <packaging>jar</packaging>
 
     <name>cn.qaiu:parser-android</name>

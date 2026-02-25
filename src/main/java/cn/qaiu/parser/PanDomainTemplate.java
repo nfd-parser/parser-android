@@ -104,7 +104,7 @@ public enum PanDomainTemplate {
                       "lanzoug|" +
                       "lanzoum" +
                      ")\\.com/(.+/)?(?<KEY>.+)"),
-            "https://lanzoux.com/{shareKey}",
+            "https://w1.lanzn.com/{shareKey}",
             LzTool.class),
 
     // https://www.feijix.com/s/
@@ -201,7 +201,7 @@ public enum PanDomainTemplate {
                     "123795\\.com"  +
                     ")/s/(?<KEY>.+)(.html)?"),
             "https://www.123pan.com/s/{shareKey}",
-            YeTool.class),
+            Ye2Tool.class),
     // https://www.ecpan.cn/web/#/yunpanProxy?path=%2F%23%2Fdrive%2Foutside&data={code}&isShare=1
     EC("移动云空间",
             compile("https://www\\.ecpan\\.cn/web(/%23|/#)?/yunpanProxy\\?path=.*&data=" +
@@ -218,11 +218,6 @@ public enum PanDomainTemplate {
                     "(?<KEY>[0-9a-zA-Z_-]+)(\\?p=(?<PWD>\\w+))?"),
             "https://474b.com/file/{shareKey}",
             CtTool.class),
-    // https://xxx.118pan.com/bxxx
-    P118("118网盘",
-            compile("https://(?:[a-zA-Z\\d-]+\\.)?118pan\\.com/b(?<KEY>.+)"),
-            "https://qaiu.118pan.com/b{shareKey}",
-            P118Tool.class),
     // https://www.vyuyun.com/s/QMa6ie?password=I4KG7H
     // https://www.vyuyun.com/s/QMa6ie/file?password=I4KG7H
     PVYY("微雨云存储",
@@ -263,7 +258,7 @@ public enum PanDomainTemplate {
 
     // https://pan-yz.cldisk.com/external/m/file/953658049102462976
     Pcx("超星云盘(需要referer头)",
-            compile("https://pan-yz\\.cldisk\\.com/external/m/file/(?<KEY>\\w+)"),
+            compile("https://pan-yz\\.(chaoxing\\.com|cldisk\\.com)/external/m/file/(?<KEY>\\w+)(\\?.*)?"),
             "https://pan-yz.cldisk.com/external/m/file/{shareKey}",
             PcxTool.class),
     // WPS：分享格式：https://www.kdocs.cn/l/ck0azivLlDi3 ；API格式：https://www.kdocs.cn/api/office/file/{shareKey}/download 
@@ -272,6 +267,19 @@ public enum PanDomainTemplate {
             compile("https://(?:[a-zA-Z\\d-]+\\.)?kdocs\\.cn/l/(?<KEY>.+)"),
             "https://www.kdocs.cn/l/{shareKey}",
             PwpsTool.class),
+
+    // https://fast.uc.cn/s/33197dd53ace4
+    // https://drive.uc.cn/s/e623b6da278e4?public=1#/list/share
+    UC("UC网盘",
+            compile("https://(fast|drive)\\.uc\\.cn/s/(?<KEY>\\w+)(\\?public=\\d+)?([&#].*)?"),
+            "https://drive.uc.cn/s/{shareKey}",
+            UcTool.class),
+    // https://pan.quark.cn/s/6a325cdaec58
+    QK("夸克网盘",
+            compile("https://pan\\.quark\\.cn/s/(?<KEY>\\w+)([&#].*)?"),
+            "https://pan.quark.cn/s/{shareKey}",
+            QkTool.class),
+
     // =====================音乐类解析 分享链接标志->MxxS (单歌曲/普通音质)==========================
     // http://163cn.tv/xxx
     MNES("网易云音乐分享",
@@ -324,10 +332,10 @@ public enum PanDomainTemplate {
 
     // Cloudreve自定义域名解析, 解析器CeTool兜底策略, 即任意域名如果匹配不到对应的规则, 则由CeTool统一处理,
     // 如果不属于Cloudreve盘 则调用下一个自定义域名解析器, 若都处理不了则抛出异常, 这种匹配模式类似责任链
-    // https://pan.huang1111.cn/s/xxx
+    // http(s)://pan.huang1111.cn/s/xxx
     // 通用域名([a-z\\d]+(-[a-z\\d]+)*\.)+[a-z]{2,}
     CE("Cloudreve",
-            compile("http(s)?://([a-zA-Z\\d]+(-[a-zA-Z\\d]+)*\\.)+[a-zA-Z]{2,}(/s)?/(?<KEY>.+)"),
+            compile("http(s)?://([a-zA-Z\\d]+(-[a-zA-Z\\d]+)*\\.)+[a-zA-Z]{2,}(:\\d{1,5})?(/s)?/(?<KEY>.+)"),
             "https://{any}/s/{shareKey}",
             "https://cloudreve.org/",
             CeTool.class),

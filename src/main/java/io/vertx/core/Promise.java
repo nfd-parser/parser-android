@@ -15,6 +15,13 @@ public class Promise<T> {
         future.complete(value);
     }
 
+    /**
+     * Calls {@code complete(null)}
+     */
+    public void complete() {
+        complete(null);
+    }
+
     public void fail(String msg) {
         fail(new RuntimeException(msg));
     }

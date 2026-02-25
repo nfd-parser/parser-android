@@ -1,6 +1,6 @@
 package cn.qaiu.parser.impl;
 
-import cn.qaiu.entity.ShareLinkInfo; 
+import cn.qaiu.entity.ShareLinkInfo;
 import cn.qaiu.parser.PanBase;
 import cn.qaiu.util.StringUtils;
 import io.netty.handler.codec.http.QueryStringDecoder;
@@ -33,19 +33,16 @@ public class QQTool extends PanBase {
         } else {
             fail("key 不合法");
         }
-
-
         // 通过请求URL获取文件信息和直链 暂时不需要
         // getFileInfo(key);
-
         return promise.future();
     }
 
     private void getFileInfo(String key) {
         // 设置基础HTTP头部
         var userAgent2 = "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, " +
-            "like " +
-            "Gecko) Chrome/111.0.0.0 Mobile Safari/537.36";
+                "like " +
+                "Gecko) Chrome/111.0.0.0 Mobile Safari/537.36";
 
         MultiMap headers = MultiMap.caseInsensitiveMultiMap();
         headers.set("User-Agent", userAgent2);
@@ -61,7 +58,7 @@ public class QQTool extends PanBase {
                 // 匹配文件信息
                 String filename = StringUtils.StringCutNot(html, "var filename = \"", "\"");
                 String filesize = StringUtils.StringCutNot(html, "var filesize = ", "\n");
-                String fileurl  = StringUtils.StringCutNot(html, "var url = \"", "\"");
+                String fileurl = StringUtils.StringCutNot(html, "var url = \"", "\"");
 
                 if (filename != null && filesize != null && fileurl != null) {
                     // 设置所需HTTP头部
